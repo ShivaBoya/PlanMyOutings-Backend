@@ -1,11 +1,12 @@
 const jwt = require("jsonwebtoken");
 const Group = require("../models/groupModel");
 
+// ✅ Main auth middleware
 const auth = (req, res, next) => {
   try {
     let token = req.cookies?.accessToken;
 
-    // ✅ Also check Authorization header (Bearer or Token)
+    // Check Authorization header (Bearer or Token)
     const authHeader = req.headers["authorization"];
     if (!token && authHeader) {
       const parts = authHeader.split(" ");
@@ -14,7 +15,7 @@ const auth = (req, res, next) => {
       }
     }
 
-    // ✅ Also check x-access-token
+    // Check x-access-token header
     if (!token && req.headers["x-access-token"]) {
       token = req.headers["x-access-token"];
     }
@@ -31,13 +32,12 @@ const auth = (req, res, next) => {
       });
     }
 
-    // ✅ Verify JWT
+    // Verify JWT
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (!decoded || !decoded.id) {
       return res.status(401).json({ message: "Invalid token format — missing user ID" });
     }
 
-    // ✅ Attach decoded data
     req.user = { id: decoded.id, email: decoded.email, name: decoded.name };
     next();
   } catch (error) {
@@ -49,7 +49,6 @@ const auth = (req, res, next) => {
     });
   }
 };
-
 
 // ✅ Check if user is group owner
 const isGroupOwner = async (req, res, next) => {
@@ -111,7 +110,10 @@ const isGroupMember = async (req, res, next) => {
   }
 };
 
-module.exports = auth;
-module.exports.isGroupOwner = isGroupOwner;
-module.exports.isGroupAdmin = isGroupAdmin;
-module.exports.isGroupMember = isGroupMember;
+// ✅ Export all middlewares together
+module.exports = {
+  auth,
+  isGroupOwner,
+  isGroupAdmin,
+  isGroupMember,
+};

@@ -18,8 +18,8 @@ const reactionRoutes = require("./routes/reactionRoutes");
 const botRoutes = require("./routes/botRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const webhookRoutes = require("./routes/webhookRoutes");
-const { protect } = require("./middleware/authMiddleware");
-//const Message = require("./models/Message"); // <-- add Message model
+const { auth } = require("./middleware/authMiddleware");
+const Message = require("./models/Message"); // ✅ Make sure this exists
 
 dotenv.config();
 
@@ -29,11 +29,11 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
-// CORS (must be before routes)
+// CORS
 app.use(
   cors({
     origin: "http://localhost:5173", // frontend URL
-    credentials: true, // allows cookies and auth headers
+    credentials: true,
   })
 );
 
@@ -69,8 +69,7 @@ io.on("connection", (socket) => {
     socket.join(eventId);
   });
 
-  socket.on("message:create", async (data) => {
-    const { eventId, senderId, text } = data;
+  socket.on("message:create", async ({ eventId, senderId, text }) => {
     try {
       const message = await Message.create({ event: eventId, sender: senderId, text });
       io.to(eventId).emit("message:create", message);
@@ -79,14 +78,15 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("message:reaction", async (data) => {
-    const { messageId, userId, emoji } = data;
+  socket.on("message:reaction", async ({ messageId, userId, emoji }) => {
     try {
       const message = await Message.findById(messageId);
       if (!message) return;
+
       const existing = message.reactions.find((r) => r.user.toString() === userId);
       if (existing) existing.emoji = emoji;
       else message.reactions.push({ user: userId, emoji });
+
       await message.save();
       io.to(message.event.toString()).emit("message:reaction", message);
     } catch (err) {
@@ -124,13 +124,13 @@ app.get("/", (req, res) => res.send("✅ PlanPal API Running"));
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err && err.stack ? err.stack : err);
-  const status = err && err.status ? err.status : 500;
+  console.error("Unhandled error:", err?.stack || err);
+  const status = err?.status || 500;
   const response = { message: err?.message || "Internal Server Error" };
   if (process.env.NODE_ENV !== "production") response.stack = err?.stack || null;
   res.status(status).json(response);
 });
 
 // Start server
-const PORT = process.env.PORT 
+const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`🚀 Server running with Socket.IO on port ${PORT}`));
