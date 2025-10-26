@@ -22,6 +22,11 @@ router.post("/register", async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
+router.get("/checkAuth", auth, (req, res) => {
+  // auth middleware already verified token and set req.user
+  res.json({ message: "Authenticated", user: req.user });
+});
+
 
 router.post("/login", async (req, res) => {
   try {
