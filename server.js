@@ -19,7 +19,6 @@ const botRoutes = require("./routes/botRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const webhookRoutes = require("./routes/webhookRoutes");
 const { auth } = require("./middleware/authMiddleware");
-const Message = require("./models/Message"); // ✅ Make sure this exists
 
 dotenv.config();
 

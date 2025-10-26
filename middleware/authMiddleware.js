@@ -1,54 +1,57 @@
 const jwt = require("jsonwebtoken");
 const Group = require("../models/groupModel");
 
-// ✅ Auth middleware
 const auth = (req, res, next) => {
   try {
-    let token;
+    let token = req.cookies?.accessToken;
 
-    // 1️⃣ Check cookie first
-    if (req.cookies?.accessToken) token = req.cookies.accessToken;
-
-    // 2️⃣ Check Authorization header
-    if (!token && req.headers.authorization) {
-      const parts = req.headers.authorization.split(" ");
-      if (parts.length === 2 && parts[0].toLowerCase() === "bearer") {
+    // ✅ Also check Authorization header (Bearer or Token)
+    const authHeader = req.headers["authorization"];
+    if (!token && authHeader) {
+      const parts = authHeader.split(" ");
+      if (parts.length === 2 && (parts[0] === "Bearer" || parts[0] === "Token")) {
         token = parts[1];
       }
     }
 
-    // 3️⃣ Check x-access-token header
+    // ✅ Also check x-access-token
     if (!token && req.headers["x-access-token"]) {
       token = req.headers["x-access-token"];
     }
 
     if (!token) {
+      console.warn("No token found in any location:", {
+        cookies: !!req.cookies?.accessToken,
+        authHeader: !!authHeader,
+        xAccessToken: !!req.headers["x-access-token"]
+      });
       return res.status(401).json({
         message: "Not authorized — no token found",
-        help: "Send token in 'Authorization: Bearer <token>', 'x-access-token', or 'accessToken' cookie",
+        help: "Send token as 'Bearer <token>' in Authorization header, or as 'x-access-token' header, or in 'accessToken' cookie"
       });
     }
 
-    // Verify JWT
+    // ✅ Verify JWT
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!decoded?.id) {
+    if (!decoded || !decoded.id) {
       return res.status(401).json({ message: "Invalid token format — missing user ID" });
     }
 
-    // Attach user to request
-    req.user = { id: decoded.id, email: decoded.email || null, name: decoded.name || null };
+    // ✅ Attach decoded data
+    req.user = { id: decoded.id, email: decoded.email, name: decoded.name };
     next();
-  } catch (err) {
-    console.error("Auth error:", err.message);
+  } catch (error) {
+    console.error("Auth error:", error.message);
     return res.status(401).json({
       message: "Token invalid or expired",
-      error: err.message,
-      help: "Try logging in again to get a fresh token",
+      error: error.message,
+      help: "Try logging in again to get a fresh token"
     });
   }
 };
 
-// ✅ Check if user is the group owner
+
+// ✅ Check if user is group owner
 const isGroupOwner = async (req, res, next) => {
   try {
     const group = await Group.findById(req.params.id);
@@ -59,9 +62,9 @@ const isGroupOwner = async (req, res, next) => {
     }
 
     next();
-  } catch (err) {
-    console.error("isGroupOwner error:", err.message);
-    res.status(500).json({ message: "Server error", error: err.message });
+  } catch (error) {
+    console.error("isGroupOwner error:", error.message);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -81,9 +84,9 @@ const isGroupAdmin = async (req, res, next) => {
     }
 
     next();
-  } catch (err) {
-    console.error("isGroupAdmin error:", err.message);
-    res.status(500).json({ message: "Server error", error: err.message });
+  } catch (error) {
+    console.error("isGroupAdmin error:", error.message);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -102,16 +105,13 @@ const isGroupMember = async (req, res, next) => {
     }
 
     next();
-  } catch (err) {
-    console.error("isGroupMember error:", err.message);
-    res.status(500).json({ message: "Server error", error: err.message });
+  } catch (error) {
+    console.error("isGroupMember error:", error.message);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// ✅ Export all middlewares
-module.exports = {
-  auth,
-  isGroupOwner,
-  isGroupAdmin,
-  isGroupMember,
-};
+module.exports = auth;
+module.exports.isGroupOwner = isGroupOwner;
+module.exports.isGroupAdmin = isGroupAdmin;
+module.exports.isGroupMember = isGroupMember;
